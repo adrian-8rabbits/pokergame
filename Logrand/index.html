@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Nine Square</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <link rel="manifest" href="manifest.webmanifest">
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas" width=1920 height=1080 tabindex="-1"></canvas>
+      <div id="unity-logo"></div>
+      <svg id="unity-loading-bar" xmlns="http://www.w3.org/2000/scg"
+        version="1.1" width="360px" height="360px">
+        <circle cx="180" cy="180" r="150" stroke-linecap="round"/>
+      </svg>
+      <div id="unity-warning"> </div>
+        <div id="rotate-PortraitRequest">
+          <div id="portraitGIF"></div>
+        </div>
+      </div>
+    <script>
+      window.addEventListener("load", function () {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.register("ServiceWorker.js");
+        }
+      });
+
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var loadingLogo = document.querySelector("#unity-logo");
+      var warningBanner = document.querySelector("#unity-warning");
+
+      var _circle = document.querySelector("circle");
+      var fprogress = 0.0;
+      var tprogress = 0.0;
+
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/Logrand.loader.js";
+      var config = {
+        dataUrl: buildUrl + "/Logrand.data.unityweb",
+        frameworkUrl: buildUrl + "/Logrand.framework.js.unityweb",
+        codeUrl: buildUrl + "/Logrand.wasm.unityweb",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "8 Rabbits",
+        productName: "Nine Square",
+        productVersion: "1.001",
+        showBanner: unityShowBanner,
+      };
+
+      var UnityInstance = null;
+
+      window.addEventListener('message', onEventTrigger, false);
+
+      function onEventTrigger(event) {
+        if(UnityInstance!= null) {
+          ProcessMessage(event);
+        }else{
+          console.error("Unity instance is not initialized. Cannot process event:", event.data);
+        }
+      };
+
+      function ProcessMessage(event) {
+        switch(event.data) {
+          case "pause": 
+            console.info("Received event:", event);
+            UnityInstance.SendMessage("JavascriptHook", "PauseUI");
+            break;
+          case "resume":
+            UnityInstance.SendMessage("JavascriptHook", "ResumeUI");
+            console.info("Received event:", event);
+            break;
+          default: break;
+        }
+      }
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+      }
+
+      loadingBar.style.display = "block";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        var interval = setInterval(function(){
+          fprogress += Math.pow((tprogress-fprogress)*0.05, 2.0);
+          _circle.style.strokeDashoffset = 942 - (942*fprogress);
+        },Infinity);
+        createUnityInstance(canvas, config, (progress) => {
+          tprogress = progress;
+        }).then((unityInstance) => {
+          UnityInstance = unityInstance;
+          clearInterval(interval);
+          onbeforeunload = (e) => UnityInstance.SendMessage("JavascriptHook", "LaunchOnQuitMessage");
+          document.querySelector(':root').style.setProperty('--rotateRequestDisplay', 'block');
+          loadingLogo.style.display = "none";
+          loadingBar.style.display = "none";
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+
+      // Listen for orientation changes
+      window.addEventListener("orientationchange", function() {
+        if (window.orientation == 90 || window.orientation == -90) {
+          // Landscape mode
+          document.querySelector(':root').style.setProperty('--rotateRequestDisplay', 'block');
+        } else {
+          // Portrait mode
+          document.querySelector(':root').style.setProperty('--rotateRequestDisplay', 'none');
+        }
+      });
+
+      // Initial check for orientation
+      if (window.orientation == 90 || window.orientation == -90) {
+        document.querySelector(':root').style.setProperty('--rotateRequestDisplay', 'block');
+      } else {
+        document.querySelector(':root').style.setProperty('--rotateRequestDisplay', 'none');
+      }
+    </script>
+  </body>
+</html>
